@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shinobu's Apothecary Scale</title>
+    <style>
+        :root {
+            --purple: #4A148C;
+            --pink: #F8BBD0;
+            --wood: #BCAAA4;
+            --wall: #F5F5DC;
+        }
+
+        body {
+            background-color: var(--wall);
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        h1 { color: var(--purple); margin-top: 20px; }
+
+        /* The Simulation Canvas Area */
+        #stage {
+            position: relative;
+            width: 800px;
+            height: 500px;
+            background: linear-gradient(to bottom, var(--wall) 80%, var(--wood) 80%);
+            border-bottom: 10px solid #8D6E63;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+
+        /* The Stand */
+        #stand {
+            position: absolute;
+            bottom: 0;
+            width: 15px;
+            height: 300px;
+            background: var(--purple);
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1;
+        }
+
+        #base {
+            position: absolute;
+            bottom: 0;
+            width: 150px;
+            height: 20px;
+            background: #5E35B1;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 5px 5px 0 0;
+        }
+
+        /* The Butterfly Beam */
+        #pivot {
+            position: absolute;
+            top: 200px;
+            left: 50%;
+            width: 0; height: 0;
+            z-index: 5;
+        }
+
+        #butterfly {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: #E1BEE7;
+            border: 2px solid var(--purple);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 35px;
+        }
+
+        #beam {
+            position: absolute;
+            width: 500px;
+            height: 20px;
+            background: var(--pink);
+            border: 2px solid var(--purple);
+            left: -250px;
+            top: -10px;
+            border-radius: 10px;
+            transition: transform 0.5s ease-out;
+            transform-origin: center;
+        }
+
+        /* Pans */
+        .pan-container {
+            position: absolute;
+            top: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.5s ease-out;
+        }
+
+        #pan-left { left: 0; }
+        #pan-right { right: 0; }
+
+        .rope { width: 2px; height: 100px; background: var(--purple); }
+        .pan {
+            width: 100px;
+            height: 40px;
+            background: #CE93D8;
+            border-radius: 0 0 50px 50px;
+            border: 2px solid var(--purple);
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            padding: 5px;
+            align-content: flex-start;
+        }
+
+        /* Atoms */
+        .atom { width: 15px; height: 15px; margin: 2px; border-radius: 3px; border: 1px solid white; }
+        .c-stone { background: #212121; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); }
+        .o-crystal { background: #F06292; clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%); }
+
+        /* UI Controls */
+        #controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 40px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .label-val { font-weight: bold; color: var(--purple); }
+    </style>
+</head>
+<body>
+
+    <h1>🦋 SHINOBU'S APOTHECARY MISSION 🦋</h1>
+
+    <div id="stage">
+        <div id="base"></div>
+        <div id="stand"></div>
+        
+        <div id="pivot">
+            <div id="butterfly">🦋</div>
+            <div id="beam">
+                <div id="pan-left" class="pan-container">
+                    <div class="rope"></div>
+                    <div id="mass-label-left" style="font-weight:bold;">0.00 u</div>
+                    <div class="pan" id="atoms-left"></div>
+                    <div id="status-left"></div>
+                </div>
+                <div id="pan-right" class="pan-container">
+                    <div class="rope"></div>
+                    <div id="mass-label-right" style="font-weight:bold;">0.00 u</div>
+                    <div class="pan" id="atoms-right"></div>
+                    <div id="status-right"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="controls">
+        <div>
+            <h3>Wisteria (Left)</h3>
+            Carbon: <input type="range" id="cLeft" min="0" max="4" value="1"> <span id="cLeftVal" class="label-val">1</span><br>
+            Oxygen: <input type="range" id="oLeft" min="0" max="4" value="1"> <span id="oLeftVal" class="label-val">1</span>
+        </div>
+        <div>
+            <h3>Insect (Right)</h3>
+            Carbon: <input type="range" id="cRight" min="0" max="4" value="1"> <span id="cRightVal" class="label-val">1</span><br>
+            Oxygen: <input type="range" id="oRight" min="0" max="4" value="2"> <span id="oRightVal" class="label-val">2</span>
+        </div>
+    </div>
+
+    <script>
+        const cMass = 12.011;
+        const oMass = 15.999;
+
+        function update() {
+            const cl = parseInt(document.getElementById('cLeft').value);
+            const ol = parseInt(document.getElementById('oLeft').value);
+            const cr = parseInt(document.getElementById('cRight').value);
+            const or = parseInt(document.getElementById('oRight').value);
+
+            document.getElementById('cLeftVal').innerText = cl;
+            document.getElementById('oLeftVal').innerText = ol;
+            document.getElementById('cRightVal').innerText = cr;
+            document.getElementById('oRightVal').innerText = or;
+
+            const ml = (cl * cMass) + (ol * oMass);
+            const mr = (cr * cMass) + (or * oMass);
+
+            document.getElementById('mass-label-left').innerText = ml.toFixed(2) + " u";
+            document.getElementById('mass-label-right').innerText = mr.toFixed(2) + " u";
+
+            // Physics Tilt (Precise)
+            const diff = mr - ml;
+            const tilt = Math.max(Math.min(diff * 1.8, 35), -35);
+            document.getElementById('beam').style.transform = `rotate(${tilt}deg)`;
+            
+            // Counter-rotate pans so they stay vertical
+            document.getElementById('pan-left').style.transform = `rotate(${-tilt}deg)`;
+            document.getElementById('pan-right').style.transform = `rotate(${-tilt}deg)`;
+
+            // Render Atoms
+            renderAtoms('atoms-left', cl, ol);
+            renderAtoms('atoms-right', cr, or);
+
+            // Logic Check
+            document.getElementById('status-left').innerHTML = (cl==1 && ol==1) ? "<b style='color:red'>CO Poison!</b>" : "";
+            document.getElementById('status-right').innerHTML = (cr==1 && or==2) ? "<b style='color:green'>CO2 Breath</b>" : "";
+        }
+
+        function renderAtoms(id, c, o) {
+            const container = document.getElementById(id);
+            container.innerHTML = "";
+            for(let i=0; i<c; i++) { let d = document.createElement('div'); d.className='atom c-stone'; container.appendChild(d); }
+            for(let i=0; i<o; i++) { let d = document.createElement('div'); d.className='atom o-crystal'; container.appendChild(d); }
+        }
+
+        document.querySelectorAll('input').forEach(i => i.addEventListener('input', update));
+        update();
+    </script>
+</body>
+</html>
